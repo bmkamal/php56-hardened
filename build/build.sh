@@ -7,7 +7,8 @@ TARBALL_SHA256=ffd025d34623553ab2f7fd8fb21d0c9e6f9fa30dc565ca03a1d7b763023fba00
 
 echo "== Installing build tools"
 yum -y -q install yum-utils rpm-build make gcc gcc-c++ redhat-rpm-config tar patch bzip2 cpio curl
-yum-config-manager -q --enable ol7_optional_latest ol7_developer_EPEL >/dev/null
+yum-config-manager -q --enable ol7_optional_latest >/dev/null
+printf "%s\n" "[epel-archive]" "name=EPEL 7 (Fedora archive)" "baseurl=https://archives.fedoraproject.org/pub/archive/epel/7/x86_64/" "enabled=1" "gpgcheck=1" "gpgkey=https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7" > /etc/yum.repos.d/epel-archive.repo
 
 echo "== Preparing the build tree with Webtatic's recipe"
 mkdir -p /root/rpmbuild/{SOURCES,SPECS}
