@@ -1,103 +1,79 @@
-# Install php56-hardened on a RHEL/CentOS 7 server
+# Install php56-hardened 1.0.0
 
-Hardened build of the Webtatic PHP 5.6.40 packages (php56w-*-5.6.40-1.w7) with a
-fix for PHP2Shell (CVE-2026-109618, CVE-2026-109619). The PHP version stays
-5.6.40; only the package release changes, to 1.w7.hardened.1.
+Fix for PHP2Shell (CVE-2026-109618, CVE-2026-109619) on RHEL/CentOS 7 servers
+running the Webtatic PHP 5.6.40 packages (php56w-*-5.6.40-1.w7) with Apache
+mod_php. The PHP version stays 5.6.40; the package release changes to
+1.w7.hardened.1.
 
-Restarting Apache causes a short outage, so do this in an agreed change window,
-on a test or QT server before production. Run every command as root (sudo -i).
+Everything is in one file, `php56-hardened-1.0.0.run`. Its SHA-256 checksum is
+sent separately from the file.
 
-## What's in the release folder
+Restarting Apache causes a short outage, so install in an agreed change window,
+on QT before production. Run every command as root (sudo -i).
 
-    php56-hardened/
-      INSTALL.md     this file
-      verify.sh      read-only check script
-      SHA256SUMS     checksums of every package
-      hardened/      the patched packages (php56w-*-5.6.40-1.w7.hardened.1)
-      rollback/      unpatched packages (php56w-*-5.6.40-1.w7), for rollback
-
-The Webtatic repository has been offline since 2019, so the rollback packages are
-built from the same Webtatic recipe and PHP source, without the patch. They
-replace the hardened packages with an unpatched build equivalent to what is
-installed today.
-
-## 1. Check this is the right server
-
-    cat /etc/redhat-release     # must say release 7.x
-    rpm -q php56w               # must be php56w-5.6.40-1.w7.x86_64
-    httpd -M 2>/dev/null | grep php5_module    # must print php5_module
-
-If any of these is different, stop and contact the build owner.
-
-## 2. Unpack and check the release files
-
-Copy the archive to /root on the server, then:
+## 1. Copy the file and check it
 
     cd /root
-    sha256sum php56-hardened-*.tar.gz        # must match the checksum you were sent separately
-    tar -xzf php56-hardened-*.tar.gz
-    cd /root/php56-hardened
-    sha256sum -c SHA256SUMS                  # every line must say OK
+    sha256sum php56-hardened-1.0.0.run      # must match the checksum you were sent
 
-## 3. Back up
+If it doesn't match, stop: don't run the file.
 
-    mkdir -p /root/php-backup
-    rpm -qa 'php*' | sort > /root/php-backup/packages-before.txt
-    cp -a /etc/php.ini /etc/php.d /etc/httpd/conf.d/php.conf /root/php-backup/
+## 2. Dry run (changes nothing)
 
-If the server is a VM, take a snapshot as well.
+    bash php56-hardened-1.0.0.run --dry-run
 
-## 4. Work out which packages to install
+It must end with `DRY RUN OK`. It checks the server is RHEL/CentOS 7 on
+php56w-5.6.40-1.w7, that Apache is running, that every installed php56w package
+has a replacement, and runs a test transaction. If it says STOPPED, nothing was
+changed: send the output to the build owner.
 
-Only the php56w packages already on the server are replaced. Add-ons built
-separately (php56w-pecl-*, php56w-pear) are not part of this release and stay as
-they are. Run steps 4 and 5 in the same terminal.
+## 3. Install
 
-    cd /root/php56-hardened/hardened
-    FILES=""
-    for p in $(rpm -qa --qf '%{NAME} %{SOURCERPM}\n' 'php56w*' | awk '$2 ~ /^php56w-5\.6\.40-/ {print $1}'); do
-      f=$p-5.6.40-1.w7.hardened.1.x86_64.rpm
-      if [ -f "$f" ]; then FILES="$FILES $f"; else echo "MISSING: $f"; fi
-    done
-    echo "Will install:$FILES"
+If the server is a VM, take a snapshot first. Then:
 
-If any MISSING line appears, stop.
+    bash php56-hardened-1.0.0.run --url http://localhost/
 
-## 5. Install, configure, restart
+Use a URL the server itself answers; `--url` is optional but recommended. The
+installer shows its plan and asks you to type `yes`. Then it:
 
-    yum -y --disablerepo='*' localinstall $FILES
-    echo 'session.upload_progress.enabled = Off' > /etc/php.d/zz-php2shell.ini
-    apachectl -t && systemctl restart httpd
+1. backs up the package list, /etc/php.ini, /etc/php.d and Apache's php.conf to
+   /root/php56-hardened-backup-<date-time>/
+2. replaces the installed php56w packages with the hardened ones, offline
+   (add-ons such as php56w-pecl-* and php56w-pear are left as they are)
+3. adds /etc/php.d/zz-php2shell.ini, which switches session upload progress off
+   as an extra layer (Drupal 6 and 7 don't use this PHP feature)
+4. tests Apache's config and restarts Apache (and php-fpm, if running)
+5. runs the built-in check and requests the URL
 
-The patch blocks session upload progress on its own; switching it off in config
-is an extra layer. Drupal 6 and 7 don't use this PHP feature for their upload
-progress bars.
+If step 4 or 5 fails, it **rolls back automatically** and says ROLLED BACK.
 
-Your existing /etc/php.ini and /etc/php.d files are kept. If yum reports a
-.rpmnew file, leave it: it's the package default, and your file is still in use.
+It must end with `DONE`. WARN lines (for example memory_limit = -1, or Xdebug
+loaded) aren't failures but should be reported. Then run the application smoke
+test: home page, log in, browse, edit content, upload a file, run cron.
 
-## 6. Verify
+Exit codes: 0 done, 1 stopped before changing anything, 2 install failed and was
+rolled back, 3 rollback failed (manual action needed). The full log is in
+/var/log/php56-hardened.log.
 
-    cd /root/php56-hardened
-    bash verify.sh
+## Check at any time (changes nothing)
 
-Every check must say PASS and the last line must say RESULT: OK. WARN lines
-aren't failures, but report them. Then run the application smoke test (home
-page, log in, browse, edit content, upload a file, run cron). Send the verify.sh
-output and /root/php-backup/packages-before.txt back to the build owner.
+    bash php56-hardened-1.0.0.run --check
+
+Every line must say PASS and the last line `RESULT: OK`.
 
 ## Rollback
 
-    cd /root/php56-hardened/rollback
-    FILES=""
-    for p in $(rpm -qa --qf '%{NAME} %{SOURCERPM}\n' 'php56w*' | awk '$2 ~ /^php56w-5\.6\.40-/ {print $1}'); do
-      f=$p-5.6.40-1.w7.x86_64.rpm
-      if [ -f "$f" ]; then FILES="$FILES $f"; else echo "MISSING: $f"; fi
-    done
-    yum -y --disablerepo='*' downgrade $FILES
-    rm -f /etc/php.d/zz-php2shell.ini
-    apachectl -t && systemctl restart httpd
-    rpm -q php56w               # must be php56w-5.6.40-1.w7.x86_64 (no "hardened")
+    bash php56-hardened-1.0.0.run --rollback
 
-If the server was snapshotted in step 3, restoring the snapshot is also a valid
+This puts back unpatched php56w-5.6.40-1.w7 packages, removes
+zz-php2shell.ini and restarts Apache. The Webtatic repository has been offline
+since 2019, so the rollback packages are built from the same Webtatic recipe and
+PHP source, without the patch. Restoring the VM snapshot is also a valid
 rollback.
+
+## Inspecting the contents
+
+    bash php56-hardened-1.0.0.run --extract /tmp/inspect
+
+Unpacks the packages, checksums and check script without installing anything.
+The manual, step-by-step method is in INSTALL-MANUAL.md.

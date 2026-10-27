@@ -32,17 +32,17 @@ php -i 2>/dev/null | grep -q '^max_multipart_body_parts' \
 errs=$(php -v 2>&1 | grep -iE 'warning|error|unable to load')
 [ -z "$errs" ] && pass "PHP starts cleanly with all extensions" || bad "PHP start-up errors: $errs"
 
-if systemctl is-active --quiet httpd; then
+pid=$(cat /run/httpd/httpd.pid 2>/dev/null || pidof -s httpd)
+if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
   pass "Apache (httpd) is running"
-  started=$(date -d "$(systemctl show -p ActiveEnterTimestamp httpd | cut -d= -f2-)" +%s 2>/dev/null)
-  installed=$(rpm -q --qf '%{INSTALLTIME}' php56w 2>/dev/null)
-  if [ -n "$started" ] && [ -n "$installed" ]; then
-    [ "$started" -ge "$installed" ] && pass "Apache was restarted after the install" \
-      || bad "Apache hasn't been restarted since the install: run systemctl restart httpd"
-  fi
 else
   bad "Apache (httpd) is not running"
 fi
+
+stale=$(grep -lE '(libphp5\.so|/php/modules/|/bin/php).*\(deleted\)' /proc/[0-9]*/maps 2>/dev/null \
+        | cut -d/ -f3 | sort -un | tr '\n' ' ')
+[ -z "$stale" ] && pass "no process is still running the old PHP files" \
+  || bad "restart needed: process(es) $stale still use the replaced PHP files (systemctl restart httpd)"
 
 up=$(php -r 'echo ini_get("session.upload_progress.enabled") ? "On" : "Off";' 2>/dev/null)
 [ "$up" = "Off" ] && pass "session.upload_progress.enabled is Off" \
@@ -52,13 +52,6 @@ mem=$(php -r 'echo ini_get("memory_limit");' 2>/dev/null)
 [ "$mem" = "-1" ] && warn "memory_limit is -1 (unlimited) in the PHP config; agree a real limit (e.g. 256M) with the application owner"
 
 php -m 2>/dev/null | grep -qi '^xdebug' && warn "Xdebug is loaded; it's a debugging tool and shouldn't run on production"
-
-if command -v lsof >/dev/null; then
-  stale=$(lsof -n 2>/dev/null | grep -E 'php.*\(deleted\)')
-  [ -z "$stale" ] && pass "no process is running old PHP files" || bad "restart needed: processes still use replaced PHP files"
-else
-  warn "lsof not installed, skipped the stale process check"
-fi
 
 [ "$fail" -eq 0 ] && echo "RESULT: OK" || echo "RESULT: PROBLEMS FOUND"
 exit "$fail"
