@@ -11,11 +11,25 @@ sent separately from the file.
 Restarting Apache causes a short outage, so install in an agreed change window,
 on QT before production. Run every command as root (sudo -i).
 
-## 1. Copy the file and check it
+Order of work:
+
+1. Dry run on **every** D6 and D7 server, production included (it changes
+   nothing), and send the output back.
+2. Install on QT, smoke test, independent security test.
+3. Production, in an approved change window, one server at a time.
+
+## 1. Get the file and check it
+
+Download it on the server, if it can reach GitHub:
 
     cd /root
+    curl -fLO https://github.com/bmkamal/php56-hardened/releases/download/v1.0.0/php56-hardened-1.0.0.run
+
+Or copy it to /root from wherever you were given it. Then:
+
     sha256sum php56-hardened-1.0.0.run      # must match the checksum you were sent
 
+It must be `c16662c2a7a64672743d50b16bf9d6c575e00dbfb3c40ec932973e9068f3e9c4`.
 If it doesn't match, stop: don't run the file.
 
 ## 2. Dry run (changes nothing)
@@ -33,8 +47,13 @@ If the server is a VM, take a snapshot first. Then:
 
     bash php56-hardened-1.0.0.run --url http://localhost/
 
-Use a URL the server itself answers; `--url` is optional but recommended. The
-installer shows its plan and asks you to type `yes`. Then it:
+`--url` is optional but recommended: a page on this server that should answer
+normally. Use `http://localhost/` if the Drupal site is the server's default
+site. If the server hosts several sites, use the site's own hostname, but only
+if it resolves to this server (check `/etc/hosts`), not to a load balancer that
+could send the request to a different server.
+
+The installer shows its plan and asks you to type `yes`. Then it:
 
 1. backs up the package list, /etc/php.ini, /etc/php.d and Apache's php.conf to
    /root/php56-hardened-backup-<date-time>/
@@ -54,6 +73,15 @@ test: home page, log in, browse, edit content, upload a file, run cron.
 Exit codes: 0 done, 1 stopped before changing anything, 2 install failed and was
 rolled back, 3 rollback failed (manual action needed). The full log is in
 /var/log/php56-hardened.log.
+
+## What to send back
+
+For each server, send the build owner:
+
+- the dry-run output (step 2)
+- the install output (step 3), or `/var/log/php56-hardened.log`, which holds
+  every run
+- the smoke test result, and any WARN lines
 
 ## Check at any time (changes nothing)
 
