@@ -1,0 +1,4 @@
+out/
+*.rpm
+*.log
+*.tar.bz2
