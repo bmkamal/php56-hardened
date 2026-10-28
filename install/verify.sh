@@ -16,7 +16,7 @@ else
   bad "not hardened: $(echo $old)"
 fi
 
-for f in /usr/lib64/httpd/modules/libphp5.so /usr/sbin/php-fpm /usr/bin/php; do
+for f in /usr/lib64/httpd/modules/libphp5.so /usr/lib64/httpd/modules/libphp5-zts.so /usr/sbin/php-fpm /usr/bin/php /usr/bin/php-cgi; do
   [ -e "$f" ] || continue
   rpm -qf "$f" | grep -q hardened && pass "$f is from the hardened build" || bad "$f is not from the hardened build"
 done
@@ -30,6 +30,11 @@ php -i 2>/dev/null | grep -q '^max_multipart_body_parts' \
   || bad "max_multipart_body_parts setting missing: patched code not loaded"
 
 errs=$(php -v 2>&1 | grep -iE 'warning|error|unable to load')
+# During an install, ignore warnings PHP was already printing before the install
+if [ -n "$errs" ] && [ -n "${PHP56H_BASELINE:-}" ] && [ -s "$PHP56H_BASELINE" ]; then
+  errs=$(echo "$errs" | grep -vxFf "$PHP56H_BASELINE")
+  [ -z "$errs" ] && warn "PHP prints start-up warnings, but they were already there before the install"
+fi
 [ -z "$errs" ] && pass "PHP starts cleanly with all extensions" || bad "PHP start-up errors: $errs"
 
 pid=$(cat /run/httpd/httpd.pid 2>/dev/null || pidof -s httpd)

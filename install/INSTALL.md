@@ -1,11 +1,11 @@
-# Install php56-hardened 1.0.0
+# Install php56-hardened 1.0.1
 
 Fix for PHP2Shell (CVE-2026-109618, CVE-2026-109619) on RHEL/CentOS 7 servers
 running the Webtatic PHP 5.6.40 packages (php56w-*-5.6.40-1.w7) with Apache
 mod_php. The PHP version stays 5.6.40; the package release changes to
 1.w7.hardened.1.
 
-Everything is in one file, `php56-hardened-1.0.0.run`. Its SHA-256 checksum is
+Everything is in one file, `php56-hardened-1.0.1.run`. Its SHA-256 checksum is
 sent separately from the file.
 
 Restarting Apache causes a short outage, so install in an agreed change window,
@@ -23,18 +23,18 @@ Order of work:
 Download it on the server, if it can reach GitHub:
 
     cd /root
-    curl -fLO https://github.com/bmkamal/php56-hardened/releases/download/v1.0.0/php56-hardened-1.0.0.run
+    curl -fLO https://github.com/bmkamal/php56-hardened/releases/download/v1.0.1/php56-hardened-1.0.1.run
 
 Or copy it to /root from wherever you were given it. Then:
 
-    sha256sum php56-hardened-1.0.0.run      # must match the checksum you were sent
+    sha256sum php56-hardened-1.0.1.run      # must match the checksum you were sent
 
-It must be `c16662c2a7a64672743d50b16bf9d6c575e00dbfb3c40ec932973e9068f3e9c4`.
+It must be `a89206219d6c7187c0262f76ab73ffe519d399c59349afd9f3bc3dde2d7575d1`.
 If it doesn't match, stop: don't run the file.
 
 ## 2. Dry run (changes nothing)
 
-    bash php56-hardened-1.0.0.run --dry-run
+    bash php56-hardened-1.0.1.run --dry-run
 
 It must end with `DRY RUN OK`. It checks the server is RHEL/CentOS 7 on
 php56w-5.6.40-1.w7, that Apache is running, that every installed php56w package
@@ -45,7 +45,7 @@ changed: send the output to the build owner.
 
 If the server is a VM, take a snapshot first. Then:
 
-    bash php56-hardened-1.0.0.run --url http://localhost/
+    bash php56-hardened-1.0.1.run --url http://localhost/
 
 `--url` is optional but recommended: a page on this server that should answer
 normally. Use `http://localhost/` if the Drupal site is the server's default
@@ -85,13 +85,13 @@ For each server, send the build owner:
 
 ## Check at any time (changes nothing)
 
-    bash php56-hardened-1.0.0.run --check
+    bash php56-hardened-1.0.1.run --check
 
 Every line must say PASS and the last line `RESULT: OK`.
 
 ## Rollback
 
-    bash php56-hardened-1.0.0.run --rollback
+    bash php56-hardened-1.0.1.run --rollback
 
 This puts back unpatched php56w-5.6.40-1.w7 packages, removes
 zz-php2shell.ini and restarts Apache. The Webtatic repository has been offline
@@ -101,7 +101,7 @@ rollback.
 
 ## Inspecting the contents
 
-    bash php56-hardened-1.0.0.run --extract /tmp/inspect
+    bash php56-hardened-1.0.1.run --extract /tmp/inspect
 
 Unpacks the packages, checksums and check script without installing anything.
 The manual, step-by-step method is in INSTALL-MANUAL.md.

@@ -217,6 +217,9 @@ confirm "This restarts Apache (short outage)."
 BACKUP=/root/php56-hardened-backup-$(date +%Y%m%d-%H%M%S)
 mkdir -p "$BACKUP" || die "can't create $BACKUP"
 rpm -qa 'php*' | sort > "$BACKUP/packages-before.txt"
+# Start-up warnings PHP already prints (e.g. from an add-on): the check after the
+# install only fails on new ones, so an existing warning can't cause a false rollback
+php -v 2>&1 | grep -iE 'warning|error|unable to load' > "$BACKUP/startup-warnings-before.txt"
 for p in /etc/php.ini /etc/php.d /etc/httpd/conf.d/php.conf; do [ -e "$p" ] && cp -a "$p" "$BACKUP/"; done
 say "backup: $BACKUP"
 
@@ -229,7 +232,8 @@ fi
 [ -e "$CONF" ] || echo "$CONF_LINE" > "$CONF"
 
 restart_apache || auto_rollback "Apache didn't restart cleanly"
-bash "$PAY/verify.sh" || auto_rollback "the check found problems (see the FAIL lines above)"
+PHP56H_BASELINE="$BACKUP/startup-warnings-before.txt" bash "$PAY/verify.sh" \
+  || auto_rollback "the check found problems (see the FAIL lines above)"
 smoke || auto_rollback "the smoke test page didn't answer properly"
 
 mkdir -p "$STATE_DIR"

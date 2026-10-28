@@ -2,9 +2,9 @@
 # Builds the single-file installer out/installer/php56-hardened-<version>.run from the
 # tested RPMs. Every package must match the checksums recorded in releases/, so the
 # installer can only ever contain the exact files that were tested.
-# Usage: bash build/make-installer.sh [version]      (default 1.0.0)
+# Usage: bash build/make-installer.sh [version]      (default 1.0.1)
 set -euo pipefail
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.0.1}"
 cd "$(dirname "$0")/.."
 
 sha() { if command -v sha256sum >/dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
@@ -19,7 +19,6 @@ copy_set() {  # source dir, recorded checksums, destination
   local n=0 f b want got
   for f in "$1"/*.x86_64.rpm; do
     b=$(basename "$f")
-    case "$b" in *-debuginfo-*) continue ;; esac
     want=$(awk -v b="$b" '$2 == b { print $1 }' "$2")
     got=$(sha "$f" | cut -d' ' -f1)
     if [ -z "$want" ] || [ "$want" != "$got" ]; then
